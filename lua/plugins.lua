@@ -1,11 +1,20 @@
 require("lazy").setup({
   {
-    "folke/tokyonight.nvim",
-    lazy = false,        -- load immediately
-    priority = 1000,     -- load before everything else
-    config = function()
-      vim.cmd.colorscheme("tokyonight")
-    end,
+  "samharju/synthweave.nvim",
+  lazy = false,
+  priority = 1000,
+  config = function()
+    vim.cmd.colorscheme("synthweave") -- or "synthweave-transparent"
+  end
+  },
+  {
+  "nvim-lualine/lualine.nvim",
+  dependencies = { "nvim-tree/nvim-web-devicons" }, -- optional icons (can remove)
+  config = function()
+    require("lualine").setup({
+      options = { theme = "auto" },
+    })
+  end,
   },
 })
 
