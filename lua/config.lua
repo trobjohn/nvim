@@ -27,8 +27,8 @@ vim.keymap.set({ "n", "v" }, "<C-s>", ":w<CR>", { silent = true })
 vim.keymap.set("i", "<C-q>", "<Esc>:q<CR>",{silent=true})
 vim.keymap.set({"n", "v"}, "<C-q>", ":q<CR>", {silent=true})
 
-vim.keymap.set("i", "<C-w>", "<Esc>:wq<CR>", {silent=true})
-vim.keymap.set({"n","v"}, "<C-w>", ":wq<CR>", {silent=true})
+--vim.keymap.set("i", "<C-w>", "<Esc>:wq<CR>", {silent=true})
+--vim.keymap.set({"n","v"}, "<C-w>", ":wq<CR>", {silent=true})
 
 vim.keymap.set("i", "<C-e>", "<Esc>:qa<CR>", {silent=true})
 vim.keymap.set({"n","v"}, "<C-e>", ":qa<CR>", {silent=true})
