@@ -20,7 +20,7 @@ end, { noremap = true, silent = true })
 
 -- Ctrl+s to save:
 vim.keymap.set("i", "<C-s>", "<Esc>:w<CR>a", { silent = true })
-
+vim.keymap.set({ "n", "v" }, "<C-s>", ":w<CR>", { silent = true })
 
 
 -- Ctrl+q/+w/+e to exit/save-and-exit/hard exit:
@@ -28,7 +28,6 @@ vim.keymap.set("i", "<C-q>", "<Esc>:q<CR>",{silent=true})
 vim.keymap.set({"n", "v"}, "<C-q>", ":q<CR>", {silent=true})
 --vim.keymap.set("i", "<C-w>", "<Esc>:wq<CR>", {silent=true})
 --vim.keymap.set({"n","v"}, "<C-w>", ":wq<CR>", {silent=true})
-
 vim.keymap.set("i", "<C-e>", "<Esc>:qa<CR>", {silent=true})
 vim.keymap.set({"n","v"}, "<C-e>", ":qa<CR>", {silent=true})
 
@@ -74,12 +73,21 @@ vim.keymap.set({"i","n"}, "<C-j>", "<C-w>j", { silent = true })
 vim.keymap.set({"i","n"}, "<C-k>", "<C-w>k", { silent = true })
 vim.keymap.set({"i","n"}, "<C-l>", "<C-w>l", { silent = true })
 
--- Ctrl selection
+-- Alt-arrow selection
 -- Visual extend left/right from insert or normal
-vim.keymap.set({ "n", "i" }, "<C-S-h>", "<Esc>vh", { silent = true })
-vim.keymap.set({ "n", "i" }, "<C-S-l>", "<Esc>vl", { silent = true })
-vim.keymap.set({"i","n"}, "<C-f>", "<C-w>h", { silent = true })
-vim.keymap.set({"i","n"}, "<C-g>", "<C-w>l", { silent = true })
+--vim.keymap.set({ "n", "i" }, "<M-h>", "<Esc>vh", { silent = true })
+--vim.keymap.set({ "n", "i" }, "<M-l>", "<Esc>vl", { silent = true })
+vim.keymap.set({ "n", "i" }, "<M-Left>",  "<Esc>vh", { silent = true })
+vim.keymap.set({ "n", "i" }, "<M-Right>", "<Esc>vl", { silent = true })
+--vim.keymap.set("n", "<M-h>", "vh", { silent = true })
+--vim.keymap.set("n", "<M-l>", "vl", { silent = true })
+--vim.keymap.set("i", "<M-h>", "<Esc>vh", { silent = true })
+--vim.keymap.set("i", "<M-l>", "<Esc>vl", { silent = true })
+
+-- Stay in visual mode after indendent/dedenting
+vim.keymap.set("v", ">", ">gv", { silent = true })
+vim.keymap.set("v", "<", "<gv", { silent = true })
+
 
 
 
