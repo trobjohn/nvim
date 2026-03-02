@@ -41,3 +41,19 @@ vim.keymap.set("n", "<leader>ln", function()
   vim.opt.number = not vim.opt.number:get()
 end, { desc = "Toggle line numbers" })
 
+-- Start in insert mode, if file opened
+vim.api.nvim_create_autocmd("BufReadPost", {
+  callback = function()
+    if vim.bo.buftype == "" then
+      vim.cmd("startinsert")
+    end
+  end,
+})
+
+-- Timer
+vim.keymap.set('n', '<leader>o', function()
+  local mins = vim.fn.input('Pomodoro minutes [25]: ')
+  mins = mins ~= '' and mins or '25'
+  vim.fn.jobstart('sleep ' .. mins .. 'm && notify-send -u critical "Sprint done!"')
+  print('Timer started: ' .. mins .. 'm')
+end, { desc = 'Start pomodoro' })
