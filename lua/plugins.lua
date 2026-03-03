@@ -16,5 +16,52 @@ require("lazy").setup({
     })
   end,
   },
+  {
+  "nvim-neo-tree/neo-tree.nvim",
+  branch = "v3.x",
+  dependencies = {
+    "nvim-lua/plenary.nvim",
+    "nvim-tree/nvim-web-devicons",
+    "MunifTanjim/nui.nvim",
+  },
+  cmd = "Neotree",
+  keys = {
+    { "<leader>e", "<cmd>Neotree toggle<cr>", desc = "Explorer" },
+    { "<leader>fe", "<cmd>Neotree filesystem reveal left<cr>", desc = "Explorer (reveal)" },
+  },
+  opts = {
+    filesystem = {
+      follow_current_file = { enabled = true },
+      hijack_netrw_behavior = "open_current",
+      use_libuv_file_watcher = true,
+    },
+    window = {
+      position = "left",
+      width = 32,
+    },
+    default_component_configs = {
+      git_status = {
+        symbols = {
+          added     = "✚",
+          modified  = "",
+          deleted   = "✖",
+          renamed   = "󰁕",
+          untracked = "",
+        },
+      },
+    },
+  },
+},
+-- mini.tabline: lightweight buffer-as-tabs bar
+{
+  "nvim-mini/mini.tabline",
+  version = false, -- use latest
+  config = function()
+    require("mini.tabline").setup({
+      show_icons = true, -- set false if you want ultra-minimal
+    })
+  end,
+}
+
 })
 
