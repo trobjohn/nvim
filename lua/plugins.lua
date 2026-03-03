@@ -51,6 +51,17 @@ require("lazy").setup({
       },
     },
   },
+},
+
+-- mini.tabline: lightweight buffer-as-tabs bar
+{
+  "nvim-mini/mini.tabline",
+  version = false, -- use latest
+  config = function()
+    require("mini.tabline").setup({
+      show_icons = true, -- set false if you want ultra-minimal
+    })
+  end,
 }
 
 })
