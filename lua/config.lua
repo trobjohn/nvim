@@ -67,11 +67,24 @@ vim.keymap.set("n", "<C-g>", "$", { silent = true })
 vim.keymap.set("i", "<C-f>", "<C-o>^", { silent = true })
 vim.keymap.set("i", "<C-g>", "<C-o>$", { silent = true })
 
--- Window navigation
-vim.keymap.set({"i","n"}, "<C-h>", "<C-w>h", { silent = true })
-vim.keymap.set({"i","n"}, "<C-j>", "<C-w>j", { silent = true })
-vim.keymap.set({"i","n"}, "<C-k>", "<C-w>k", { silent = true })
-vim.keymap.set({"i","n"}, "<C-l>", "<C-w>l", { silent = true })
+-- Window navigation -- Will restore insert mode on switch instead of normal
+-- vim.keymap.set({"i","n"}, "<C-h>", "<C-w>h", { silent = true })
+-- vim.keymap.set({"i","n"}, "<C-j>", "<C-w>j", { silent = true })
+-- vim.keymap.set({"i","n"}, "<C-k>", "<C-w>k", { silent = true })
+-- vim.keymap.set({"i","n"}, "<C-l>", "<C-w>l", { silent = true })
+
+vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]])
+vim.keymap.set("t", "<C-h>", [[<C-\><C-n><C-w>h]])
+vim.keymap.set("t", "<C-j>", [[<C-\><C-n><C-w>j]])
+vim.keymap.set("t", "<C-k>", [[<C-\><C-n><C-w>k]])
+vim.keymap.set("t", "<C-l>", [[<C-\><C-n><C-w>l]])
+
+vim.keymap.set("i", "<C-h>", [[<Esc><C-w>h]])
+vim.keymap.set("i", "<C-j>", [[<Esc><C-w>j]])
+vim.keymap.set("i", "<C-k>", [[<Esc><C-w>k]])
+vim.keymap.set("i", "<C-l>", [[<Esc><C-w>l]])
+
+
 
 -- Stay in visual mode after indendent/dedenting
 vim.keymap.set("v", ">", ">gv", { silent = true })
