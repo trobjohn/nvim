@@ -50,6 +50,44 @@ vim.api.nvim_create_autocmd("BufReadPost", {
   end,
 })
 
+-- default/realign focus
+local aug = vim.api.nvim_create_augroup("auto_insert_on_focus", { clear = true })
+
+vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter" }, {
+  group = aug,
+  callback = function()
+    local bt = vim.bo.buftype
+    local ft = vim.bo.filetype
+
+    -- skip weird/special windows
+    if bt == "nofile" or bt == "prompt" or bt == "help" or bt == "quickfix" then
+      return
+    end
+
+    -- terminals and normal editable files should go straight to insert
+    if bt == "" or bt == "terminal" then
+      vim.schedule(function()
+        if vim.api.nvim_get_current_win() ~= 0 then
+          vim.cmd("startinsert")
+        end
+      end)
+    end
+  end,
+})
+
+
+vim.api.nvim_create_autocmd("FocusGained", {
+  group = aug,
+  callback = function()
+    local bt = vim.bo.buftype
+    if bt == "" or bt == "terminal" then
+      vim.schedule(function()
+        vim.cmd("startinsert")
+      end)
+    end
+  end,
+})
+
 -- Timer
 vim.keymap.set('n', '<leader>o', function()
   local mins = vim.fn.input('Pomodoro minutes [25]: ')
