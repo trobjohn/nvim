@@ -1,0 +1,28 @@
+Definitely safe:
+
+<C-a> - go to start of line (bash-like)
+<C-e> - go to end of line (bash-like)
+<C-f> - unused by default
+<C-g> - unused by default
+<C-n> - next completion (but you can remap)
+<C-p> - prev completion (but you can remap)
+<C-s> - save (classic, though historically froze terminals)
+<C-t> - indent
+<C-d> - unindent
+<C-x> - enters a sub-mode, but you can override
+<C-y> - unused by default
+<C-z> - suspends vim (can override with caution)
+
+
+
+Avoid (these do system things):
+
+<C-c> - sends SIGINT (can override but risky)
+<C-h> - backspace in many terminals
+<C-i> - same as Tab
+<C-j> - same as Enter in some contexts
+<C-m> - same as Enter
+<C-q> - flow control (XON)
+<C-s> - flow control (XOFF) on old systems
+<C-[> - same as ESC (your current problem!)
+<C-]> - tag jump

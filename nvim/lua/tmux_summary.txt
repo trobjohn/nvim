@@ -1,0 +1,44 @@
+# core
+tmux                 # start
+Ctrl+b c             # new window
+Ctrl+b %             # vertical split
+Ctrl+b "             # horizontal split
+Ctrl+b arrow         # move between panes
+Ctrl+b d             # detach
+tmux attach          # reconnect
+Ctrl+b x 	     # kill pane
+
+
+
+# Create pane
+Ctrl+b then c
+
+Ctrl+b n   # next
+Ctrl+b p   # previous
+Ctrl+b 0-9 # jump to number
+
+# Vertical, horizontal split
+Ctrl+b %
+Ctrl+b "
+
+# Navigation
+Ctrl+b arrow keys
+
+# Resize panes
+Ctrl+b Ctrl+arrow
+
+# Detach from tmux
+Ctrl+b d
+
+# list sessions
+tmux ls
+
+# Reattach
+tmux attach
+
+# Kill session
+Ctrl+b:kill-session
+
+
+
+
