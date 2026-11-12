@@ -1,188 +1,181 @@
--- lua/repl.lua
-local M = {}
+local M = { terminals = {} }
+local python_kind
 
--- Store job/channel ids for terminals we open
-M.jobs = {
-  python = nil,
-  ipython = nil,
-  r = nil,
+local specs = {
+  python = {
+    cmd = { "python", "-i" },
+    ext = "py",
+    send_cmd = function(path)
+      return ("exec(compile(open(%q).read(), %q, 'exec'), globals())"):format(path, path)
+    end,
+  },
+  ipython = {
+    cmd = { "ipython" },
+    ext = "py",
+    send_cmd = function(path)
+      return ("%%run -i %q"):format(path)
+    end,
+  },
+  r = {
+    cmd = { "R" },
+    ext = "R",
+    send_cmd = function(path)
+      return ("source(%q)"):format(path)
+    end,
+  },
 }
 
--- Find the rightmost non-floating window
-local function rightmost_window()
-  local wins = vim.api.nvim_list_wins()
-  local best_win, best_col = nil, -1
+local function current_kind()
+  if vim.bo.filetype == "python" then
+    return python_kind or (vim.fn.executable("ipython") == 1 and "ipython" or "python")
+  elseif vim.bo.filetype == "r" then
+    return "r"
+  end
+  vim.notify("REPL execution supports Python and R buffers.", vim.log.levels.WARN)
+end
 
-  for _, win in ipairs(wins) do
-    local cfg = vim.api.nvim_win_get_config(win)
-    if not cfg.relative or cfg.relative == "" then
-      local pos = vim.api.nvim_win_get_position(win)
-      local col = pos[2]
-      if col > best_col then
-        best_col = col
-        best_win = win
+local function is_live_job(job)
+  return job ~= nil and vim.fn.jobwait({ job }, 0)[1] == -1
+end
+
+local function visible_window_for_buffer(buf)
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == buf then
+      local cfg = vim.api.nvim_win_get_config(win)
+      if cfg.relative == "" then
+        return win
       end
     end
   end
-
-  return best_win
 end
 
--- If the given window is a terminal, return its job id; else nil
-local function terminal_job_in_window(win)
-  if not win then return nil end
-  local buf = vim.api.nvim_win_get_buf(win)
-  if vim.bo[buf].buftype ~= "terminal" then
+local function open_term(kind)
+  local spec = specs[kind]
+  local state = M.terminals[kind] or {}
+  M.terminals[kind] = state
+  local source_win = vim.api.nvim_get_current_win()
+
+  if is_live_job(state.job) and state.buf and vim.api.nvim_buf_is_valid(state.buf) then
+    if not visible_window_for_buffer(state.buf) then
+      vim.cmd("rightbelow vsplit")
+      vim.api.nvim_win_set_buf(0, state.buf)
+      vim.api.nvim_set_current_win(source_win)
+    end
+    return state.job
+  end
+
+  if vim.fn.executable(spec.cmd[1]) ~= 1 then
+    vim.notify("Interpreter not found: " .. spec.cmd[1], vim.log.levels.WARN)
     return nil
   end
-  return vim.b[buf].terminal_job_id
-end
 
--- Prefer sending to the rightmost terminal window (your interpreter pane)
-local function right_pane_job()
-  return terminal_job_in_window(rightmost_window())
-end
-
-
--- Open (or reuse) a terminal split and remember its job id
-local function open_term(kind, cmd)
-  -- If we already have a live job, don't reopen
-  if M.jobs[kind] and vim.fn.chansend(M.jobs[kind], "") == 0 then
-    return M.jobs[kind]
+  vim.cmd("rightbelow vnew")
+  state.buf = vim.api.nvim_get_current_buf()
+  state.job = vim.fn.termopen(spec.cmd)
+  vim.api.nvim_set_current_win(source_win)
+  if state.job <= 0 then
+    state.job = nil
+    vim.notify("Could not start " .. spec.cmd[1], vim.log.levels.ERROR)
   end
-
-  -- Open a split terminal
-  vim.cmd("botright split")
-  vim.cmd("resize 12")
-  vim.cmd("terminal " .. cmd)
-
-  -- The terminal job id lives in b:terminal_job_id
-  local job = vim.b.terminal_job_id
-  M.jobs[kind] = job
-
-  -- Optional: go back to previous window automatically
-  vim.cmd("wincmd p")
-
-  return job
+  return state.job
 end
 
 function M.open_python()
-  return open_term("python", "python -i")
+  local job = open_term("python")
+  if job then
+    python_kind = "python"
+  end
+  return job
 end
 
 function M.open_ipython()
-  return open_term("ipython", "ipython")
+  local job = open_term("ipython")
+  if job then
+    python_kind = "ipython"
+  end
+  return job
 end
 
-function M.open_r()
-  -- Use plain R. If you prefer radian: "radian"
-  return open_term("r", "R")
+function M.open_repl_for_current_buffer()
+  local kind = current_kind()
+  if kind then
+    return open_term(kind)
+  end
 end
 
--- Get visual selection as a string (preserves lines, handles partial line selection)
-local function get_visual_selection()
-  -- Visual range positions
-  local _, ls, cs = unpack(vim.fn.getpos("'<"))
-  local _, le, ce = unpack(vim.fn.getpos("'>"))
-
+local function get_visual_selection(mode)
+  -- Visual marks '< and '> describe the previous selection until Visual mode ends.
+  local _, ls, cs = unpack(vim.fn.getpos("v"))
+  local _, le, ce = unpack(vim.fn.getpos("."))
+  local block_start, block_end = math.min(cs, ce), math.max(cs, ce)
   if ls > le or (ls == le and cs > ce) then
-    -- Swap if reversed
-    ls, le = le, ls
-    cs, ce = ce, cs
+    ls, le, cs, ce = le, ls, ce, cs
   end
 
   local lines = vim.fn.getline(ls, le)
-  if #lines == 0 then return "" end
-
-  -- Trim first/last line to match columns
-  lines[1] = string.sub(lines[1], cs)
-  lines[#lines] = string.sub(lines[#lines], 1, ce)
-
+  local function through_char(line, col)
+    -- Columns are byte offsets; include the complete final UTF-8 character.
+    return col - 1 + #vim.fn.matchstr(line:sub(col), "^.")
+  end
+  if mode == "\22" then
+    for i, line in ipairs(lines) do
+      lines[i] = line:sub(block_start, through_char(line, block_end))
+    end
+  elseif mode ~= "V" then
+    -- Trim the end first so a selection within one line uses original columns.
+    lines[#lines] = lines[#lines]:sub(1, through_char(lines[#lines], ce))
+    lines[1] = lines[1]:sub(cs)
+  end
   return table.concat(lines, "\n") .. "\n"
 end
 
--- Cell marker (VS Code style): "# %%"
-local CELL_PAT = [[^\s*#\s*%%]]
-local CELL_VIM_PAT = [[^\s*#\s*%%]]     -- for vim.fn.search
-local CELL_LUA_PAT = "^%s*#%s*%%%%"      -- for string.match
+local CELL_PAT = "^%s*#%s*%%%%"
 
+local function get_cell_text()
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local first, last = 1, #lines
+  for i = row, 1, -1 do
+    if lines[i]:match(CELL_PAT) then
+      first = i + 1
+      break
+    end
+  end
+  for i = first, #lines do
+    if lines[i]:match(CELL_PAT) then
+      last = i - 1
+      break
+    end
+  end
+  if first > last then
+    return ""
+  end
+  return table.concat(vim.list_slice(lines, first, last), "\n") .. "\n"
+end
 
--- Move cursor to the start of the next cell (after a # %% marker)
 local function goto_next_cell()
-  local cur = vim.api.nvim_win_get_cursor(0)
-  local row = cur[1]
-
-  local last_line = vim.api.nvim_buf_line_count(0)
-
-  -- Search forward for next cell marker
-  for i = row + 1, last_line do
-    local line = vim.fn.getline(i)
-    if line:match(CELL_LUA_PAT) then
-      -- Move to first non-blank line after marker
+  local last = vim.api.nvim_buf_line_count(0)
+  for i = vim.api.nvim_win_get_cursor(0)[1] + 1, last do
+    if vim.fn.getline(i):match(CELL_PAT) then
       local target = i + 1
-      while target <= last_line and vim.fn.getline(target):match("^%s*$") do
+      while target <= last and vim.fn.getline(target):match("^%s*$") do
         target = target + 1
       end
-      vim.api.nvim_win_set_cursor(0, { target, 0 })
+      if target <= last then
+        vim.api.nvim_win_set_cursor(0, { target, 0 })
+      end
       return
     end
   end
 end
 
-
--- Return the text of the cell containing the cursor.
--- If no cell markers exist, return the whole file.
-local function get_cell_text()
-  local cur = vim.api.nvim_win_get_cursor(0) -- {row, col}, row is 1-indexed
-  local cur_row = cur[1]
-
-  local last_line = vim.api.nvim_buf_line_count(0)
-
-  -- Save/restore cursor so searches don't move you
-  local saved = vim.fn.getpos(".")
-
-  -- Find previous cell marker (including current line)
-  vim.fn.setpos(".", {0, cur_row, 1, 0})
-  local start_marker = vim.fn.search(CELL_PAT, "bnW") -- backward, no wrap
-  local start_line
-  if start_marker == 0 then
-    start_line = 1
-  else
-    start_line = start_marker + 1 -- start AFTER the marker line
-  end
-
-  -- Find next cell marker (search forward from start_line)
-  vim.fn.setpos(".", {0, start_line, 1, 0})
-  local next_marker = vim.fn.search(CELL_PAT, "nW") -- forward, no wrap
-  local end_line
-  if next_marker == 0 then
-    end_line = last_line
-  else
-    end_line = next_marker - 1 -- end BEFORE next marker
-  end
-
-  -- Restore cursor
-  vim.fn.setpos(".", saved)
-
-  if end_line < start_line then
-    return ""
-  end
-
-  local lines = vim.fn.getline(start_line, end_line)
-  return table.concat(lines, "\n") .. "\n"
-end
-
-
--- Write text to a temp file with a stable name (so you can inspect it)
 local function write_temp(ext, text)
-  local dir = vim.fn.stdpath("cache") .. "/replblocks"
-  vim.fn.mkdir(dir, "p")
-
-  local path = dir .. "/temp_block." .. ext
+  -- A different path per run prevents a rapid second run overwriting queued code.
+  local path = vim.fn.tempname() .. "." .. ext
   local ok, err = pcall(function()
-    local f = assert(io.open(path, "w"))
-    f:write(text)
-    f:close()
+    local file = assert(io.open(path, "w"))
+    file:write(text)
+    file:close()
   end)
   if not ok then
     vim.notify("Failed writing temp file: " .. tostring(err), vim.log.levels.ERROR)
@@ -191,118 +184,36 @@ local function write_temp(ext, text)
   return path
 end
 
--- Send a command to a terminal job
-local function send(job, cmd)
-  if not job then
-    vim.notify("No REPL job found for this language.", vim.log.levels.WARN)
+function M.run_current_context()
+  local kind = current_kind()
+  if not kind then
     return
   end
-  vim.fn.chansend(job, cmd .. "\r") -- edited from \n
-end
-
--- Public: run visual selection in Python (plain python -i)
-function M.run_visual_python()
-  local text = get_visual_selection()
-  if text == "" then return end
-
-  local path = write_temp("py", text)
-  if not path then return end
-
-  local job = right_pane_job()
-  if not job then
-    vim.notify("Right pane is not a terminal (python/ipython).", vim.log.levels.WARN)
+  local mode = vim.fn.mode()
+  local is_visual = mode == "v" or mode == "V" or mode == "\22"
+  local text = is_visual and get_visual_selection(mode) or get_cell_text()
+  if not text:match("%S") then
     return
   end
 
-  -- plain python REPL doesn't understand %run
-  send(job, ("exec(open(%q).read(), globals())"):format(path))
-end
-
-
--- Public: run visual selection in IPython (%run -i keeps namespace)
-function M.run_visual_ipython()
-  local text = get_visual_selection()
-  if text == "" then return end
-
-  local path = write_temp("py", text)
-  if not path then return end
-
-  local job = right_pane_job()
+  local job = open_term(kind)
   if not job then
-    vim.notify("Right pane is not a terminal (ipython).", vim.log.levels.WARN)
+    return
+  end
+  local path = write_temp(specs[kind].ext, text)
+  if not path then
+    return
+  end
+  if vim.fn.chansend(job, specs[kind].send_cmd(path) .. "\r") == 0 then
+    vim.notify("Could not send code to the interpreter.", vim.log.levels.WARN)
     return
   end
 
-  send(job, ("%%run -i %s"):format(vim.fn.fnameescape(path)))
-end
-
-
-
--- Public: run visual selection in R (source)
-function M.run_visual_r()
-  local text = get_visual_selection()
-  if text == "" then return end
-
-  local path = write_temp("R", text)
-  if not path then return end
-
-  local job = right_pane_job()
-  if not job then
-    vim.notify("Right pane is not a terminal (R).", vim.log.levels.WARN)
-    return
+  if is_visual then
+    vim.cmd("normal! " .. string.char(27))
+  else
+    goto_next_cell()
   end
-
-  send(job, ('source("%s")'):format(path:gsub("\\", "\\\\")))
 end
-
-function M.run_cell_python()
-  local text = get_cell_text()
-  if text == "" then return end
-
-  local path = write_temp("py", text)
-  if not path then return end
-
-  local job = right_pane_job()
-  if not job then
-    vim.notify("Right pane is not a terminal. Open python with <C-p> (or your REPL opener) first.", vim.log.levels.WARN)
-    return
-  end 
-  send(job, ("exec(open(%q).read(), globals())"):format(path))
-  goto_next_cell()
-end
-
-function M.run_cell_ipython()
-  local text = get_cell_text()
-  if text == "" then return end
-
-  local path = write_temp("py", text)
-  if not path then return end
-
-  local job = right_pane_job()
-  if not job then
-    vim.notify("Right pane is not a terminal. Open ipython with <C-i> (or your REPL opener) first.", vim.log.levels.WARN)
-    return
-  end
-  send(job, ("%%run -i %s"):format(vim.fn.fnameescape(path)))
-  goto_next_cell()
-end
-
-function M.run_cell_r()
-  local text = get_cell_text()
-  if text == "" then return end
-
-  local path = write_temp("R", text)
-  if not path then return end
-  
-  local job = right_pane_job()
-  if not job then
-    vim.notify("Right pane is not a terminal. Open python with <C-r> (or your REPL opener) first.", vim.log.levels.WARN)
-    return
-  end
-  send(job, ('source("%s")'):format(path:gsub("\\", "\\\\")))
-  goto_next_cell()
-end
-
 
 return M
-
