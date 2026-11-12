@@ -18,23 +18,29 @@ require("lazy").setup({
   },
   {
     "nvim-treesitter/nvim-treesitter",
-    branch = "master",
+    branch = "main",
     build = ":TSUpdate",
     lazy = false,
     config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "bash",
-          "lua",
-          "markdown",
-          "markdown_inline",
-          "python",
-          "r",
-          "vim",
-          "vimdoc",
-        },
-        highlight = { enable = true },
-        indent = { enable = true },
+      local treesitter = require("nvim-treesitter")
+      treesitter.setup({})
+
+      treesitter.install({
+        "bash",
+        "lua",
+        "markdown",
+        "markdown_inline",
+        "python",
+        "r",
+        "vim",
+        "vimdoc",
+      })
+
+      -- Neovim 0.12 provides highlighting; start it when a parser is available.
+      vim.api.nvim_create_autocmd("FileType", {
+        callback = function(args)
+          pcall(vim.treesitter.start, args.buf)
+        end,
       })
     end,
   },
@@ -91,5 +97,9 @@ require("lazy").setup({
         show_icons = true,
       })
     end,
+  },
+}, {
+  rocks = {
+    enabled = false,
   },
 })
